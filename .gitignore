@@ -1,0 +1,6 @@
+.env
+node_modules
+.DS_Store
+
+# Ignore all files in the dist directory
+dist/
