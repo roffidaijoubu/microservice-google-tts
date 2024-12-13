@@ -50,9 +50,11 @@ jobs:
           # Create directory and copy files
           ssh $VPS_USER@$VPS_HOST "sudo mkdir -p /var/www/microservice-google-tts"
           
-          # Copy docker-compose and other necessary files
+          # Copy docker-compose and other necessary files using sudo
+          ssh $VPS_USER@$VPS_HOST "sudo chown $VPS_USER:$VPS_USER /var/www/microservice-google-tts"
           scp docker-compose.yml $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/
           scp .env $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/ || true
+          ssh $VPS_USER@$VPS_HOST "sudo chown -R root:root /var/www/microservice-google-tts"
 
           # Ensure the Docker 'web' network exists and deploy
           ssh $VPS_USER@$VPS_HOST "
