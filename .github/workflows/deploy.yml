@@ -37,7 +37,6 @@ jobs:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           # Set up SSH private key for GitHub Actions
           mkdir -p ~/.ssh
@@ -47,23 +46,28 @@ jobs:
           # Add host key verification
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
-          # Create directory and copy files
-          ssh $VPS_USER@$VPS_HOST "sudo mkdir -p /var/www/microservice-google-tts"
-          
-          # Copy docker-compose and other necessary files using sudo
-          ssh $VPS_USER@$VPS_HOST "sudo chown $VPS_USER:$VPS_USER /var/www/microservice-google-tts"
-          scp docker-compose.yml $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/
-          scp .env $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/ || true
-          ssh $VPS_USER@$VPS_HOST "sudo chown -R root:root /var/www/microservice-google-tts"
-
-          # Ensure the Docker 'web' network exists and deploy
+          # Create temporary directory and copy files to VPS user's home directory first
           ssh $VPS_USER@$VPS_HOST "
+            mkdir -p ~/temp_deploy &&
+            sudo rm -rf /var/www/microservice-google-tts &&
+            sudo mkdir -p /var/www/microservice-google-tts
+          "
+          
+          # Copy files to temporary directory
+          scp docker-compose.yml $VPS_USER@$VPS_HOST:~/temp_deploy/
+          scp .env $VPS_USER@$VPS_HOST:~/temp_deploy/ || true
+
+          # Move files to final destination with sudo
+          ssh $VPS_USER@$VPS_HOST "
+            sudo cp ~/temp_deploy/* /var/www/microservice-google-tts/ &&
+            rm -rf ~/temp_deploy &&
+            
             # Create network if it doesn't exist
-            sudo docker network inspect web >/dev/null 2>&1 || sudo docker network create web
+            sudo docker network inspect web >/dev/null 2>&1 || sudo docker network create web &&
             
             # Deploy using docker-compose
-            cd /var/www/microservice-google-tts && \
-            sudo docker-compose down || true && \
-            sudo docker-compose pull && \
+            cd /var/www/microservice-google-tts &&
+            sudo docker-compose down || true &&
+            sudo docker-compose pull &&
             sudo docker-compose up -d
-          " 
+          "
