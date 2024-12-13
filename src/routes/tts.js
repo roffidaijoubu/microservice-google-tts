@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { validateApiKey } = require('../middleware/auth');
 const { convertTextToSpeech } = require('../services/ttsService');
 
-router.post('/convert', validateApiKey, async (req, res) => {
+router.post('/convert', async (req, res) => {
   try {
     const { text, lang = 'id' } = req.body;
     
