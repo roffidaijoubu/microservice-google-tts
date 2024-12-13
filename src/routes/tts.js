@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { convertTextToSpeech } = require('../services/ttsService');
 
-router.post('/convert', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { text, lang = 'id' } = req.body;
     

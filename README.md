@@ -14,7 +14,7 @@ A lightweight microservice that converts text to speech using Google's Text-to-S
 
 ## API Endpoints
 
-### POST `/convert`
+### POST `/`
 
 Converts text to speech.
 
