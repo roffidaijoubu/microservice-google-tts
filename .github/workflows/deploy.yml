@@ -29,6 +29,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Deploy to VPS
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -40,27 +43,25 @@ jobs:
           mkdir -p ~/.ssh
           echo "${SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          
+          # Add host key verification
+          echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
-          # Ensure the Docker 'web' network exists
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "
+          # Create directory and copy files
+          ssh $VPS_USER@$VPS_HOST "sudo mkdir -p /var/www/microservice-google-tts"
+          
+          # Copy docker-compose and other necessary files
+          scp docker-compose.yml $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/
+          scp .env $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/ || true
+
+          # Ensure the Docker 'web' network exists and deploy
+          ssh $VPS_USER@$VPS_HOST "
+            # Create network if it doesn't exist
             sudo docker network inspect web >/dev/null 2>&1 || sudo docker network create web
-          "
-
-          # Pull the latest repository and update docker-compose
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "
-            cd /var/www/microservice-google-tts || (sudo mkdir -p /var/www/microservice-google-tts && cd /var/www/microservice-google-tts) &&
-            sudo git init &&
-            sudo git remote set-url origin https://ghp_${PAT_TOKEN}@github.com/roffidaijoubu/microservice-google-tts.git || sudo git remote add origin https://ghp_${PAT_TOKEN}@github.com/roffidaijoubu/microservice-google-tts.git &&
-            sudo git config --global credential.helper store &&
-            echo "https://ghp_${PAT_TOKEN}@github.com" > ~/.git-credentials &&
-            sudo git fetch origin &&
-            sudo git reset --hard origin/main
-          "
-
-          # Deploy the microservice using docker-compose
-          ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "
-            cd /var/www/microservice-google-tts &&
-            sudo docker-compose down &&
-            sudo docker-compose pull &&
+            
+            # Deploy using docker-compose
+            cd /var/www/microservice-google-tts && \
+            sudo docker-compose down || true && \
+            sudo docker-compose pull && \
             sudo docker-compose up -d
           " 
