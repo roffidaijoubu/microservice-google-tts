@@ -37,6 +37,8 @@ jobs:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
+          DOMAIN: ${{ secrets.DOMAIN }}
+          TRAEFIK_ACME_EMAIL: ${{ secrets.TRAEFIK_ACME_EMAIL }}
         run: |
           # Set up SSH private key for GitHub Actions
           mkdir -p ~/.ssh
@@ -46,28 +48,28 @@ jobs:
           # Add host key verification
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
-          # Create temporary directory and copy files to VPS user's home directory first
+          # Prepare destination directory
           ssh $VPS_USER@$VPS_HOST "
-            mkdir -p ~/temp_deploy &&
-            sudo rm -rf /var/www/microservice-google-tts &&
-            sudo mkdir -p /var/www/microservice-google-tts
+            mkdir -p /var/www/microservice-google-tts/letsencrypt
           "
           
-          # Copy files to temporary directory
-          scp docker-compose.yml $VPS_USER@$VPS_HOST:~/temp_deploy/
-          scp .env $VPS_USER@$VPS_HOST:~/temp_deploy/ || true
-
-          # Move files to final destination with sudo
+          # Create environment file
+          echo "DOMAIN=${DOMAIN}" > .env
+          echo "TRAEFIK_ACME_EMAIL=${TRAEFIK_ACME_EMAIL}" >> .env
+          
+          # Copy files directly to destination
+          scp .env docker-compose.yml $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/
+          
+          # Deploy with Traefik check
           ssh $VPS_USER@$VPS_HOST "
-            sudo cp ~/temp_deploy/* /var/www/microservice-google-tts/ &&
-            rm -rf ~/temp_deploy &&
-            
-            # Create network if it doesn't exist
-            sudo docker network inspect web >/dev/null 2>&1 || sudo docker network create web &&
-            
-            # Deploy using docker-compose
             cd /var/www/microservice-google-tts &&
-            sudo docker-compose down || true &&
-            sudo docker-compose pull &&
-            sudo docker-compose up -d
+            # Check if Traefik is running
+            if docker ps -q -f name=^/traefik$ >/dev/null; then
+              echo 'Traefik is already running, skipping Traefik deployment' &&
+              # Remove Traefik service from docker-compose
+              docker-compose down --remove-orphans &&
+              sed -i '/^  traefik:/,/^  [^t]/{/^  [^t]/!d}' docker-compose.yml
+            fi &&
+            docker-compose pull &&
+            docker-compose up -d
           "

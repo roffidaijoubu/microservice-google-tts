@@ -1,17 +1,47 @@
 version: '3.8'
 
 services:
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.http.address=:80"
+      - "--entrypoints.https.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:-your@email.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=DEBUG"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "letsencrypt:/letsencrypt"
+    networks:
+      - web
+    restart: unless-stopped
+    environment:
+      - TRAEFIK_ACME_EMAIL=${TRAEFIK_ACME_EMAIL}
+    labels:
+      - "traefik.enable=true"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    x-condition: "! docker ps -q -f name=^/traefik$"
+
   microservice-google-tts:
     image: roffidaijoubu/microservice-google-tts:latest
     labels:
       # Main API route
-      - "traefik.http.routers.microservice-google-tts.rule=Host(`gtts.oristarium.com`)"
+      - "traefik.http.routers.microservice-google-tts.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.microservice-google-tts.entrypoints=https"
       - "traefik.http.routers.microservice-google-tts.tls.certresolver=letsencrypt"
       - "traefik.http.routers.microservice-google-tts.middlewares=security-headers,compress"
       
       # HTTP to HTTPS redirect
-      - "traefik.http.routers.microservice-google-tts-http.rule=Host(`gtts.oristarium.com`)"
+      - "traefik.http.routers.microservice-google-tts-http.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.microservice-google-tts-http.entrypoints=http"
       - "traefik.http.routers.microservice-google-tts-http.middlewares=https-redirect"
       
@@ -31,6 +61,7 @@ services:
       
       # Service configuration
       - "traefik.http.services.microservice-google-tts.loadbalancer.server.port=3001"
+      - "traefik.enable=true"
     networks:
       - web
     expose:
@@ -52,4 +83,7 @@ services:
 
 networks:
   web:
-    external: true 
+    external: true
+
+volumes:
+  letsencrypt:
