@@ -29,10 +29,11 @@ services:
       restart_policy:
         condition: on-failure
         max_attempts: 3
-    x-condition: "! docker ps -q -f name=^/traefik$"
 
   microservice-google-tts:
     image: roffidaijoubu/microservice-google-tts:latest
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
     labels:
       # Main API route
       - "traefik.http.routers.microservice-google-tts.rule=Host(`${DOMAIN}`)"

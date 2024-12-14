@@ -39,37 +39,46 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           DOMAIN: ${{ secrets.DOMAIN }}
           TRAEFIK_ACME_EMAIL: ${{ secrets.TRAEFIK_ACME_EMAIL }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          # Set up SSH private key for GitHub Actions
+          # Setup SSH
           mkdir -p ~/.ssh
           echo "${SSH_KEY}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
-          # Add host key verification
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
 
-          # Prepare destination directory
-          ssh $VPS_USER@$VPS_HOST "
-            mkdir -p /var/www/microservice-google-tts/letsencrypt
-          "
-          
-          # Create environment file
+          # Set deploy path with fallback
+          DEPLOY_DIR="${DEPLOY_PATH:-/var/www/microservice-google-tts}"
+
+          # Create .env file
           echo "DOMAIN=${DOMAIN}" > .env
           echo "TRAEFIK_ACME_EMAIL=${TRAEFIK_ACME_EMAIL}" >> .env
-          
-          # Copy files directly to destination
-          scp .env docker-compose.yml $VPS_USER@$VPS_HOST:/var/www/microservice-google-tts/
-          
-          # Deploy with Traefik check
+
+          # Deploy
           ssh $VPS_USER@$VPS_HOST "
-            cd /var/www/microservice-google-tts &&
-            # Check if Traefik is running
-            if docker ps -q -f name=^/traefik$ >/dev/null; then
-              echo 'Traefik is already running, skipping Traefik deployment' &&
-              # Remove Traefik service from docker-compose
-              docker-compose down --remove-orphans &&
-              sed -i '/^  traefik:/,/^  [^t]/{/^  [^t]/!d}' docker-compose.yml
-            fi &&
-            docker-compose pull &&
-            docker-compose up -d
+            # Create directories
+            mkdir -p ${DEPLOY_DIR}
+            mkdir -p ${DEPLOY_DIR}/letsencrypt
+
+            # Check if network exists, create if it doesn't
+            if ! docker network ls | grep -q 'web'; then
+              echo 'Creating web network...'
+              docker network create web
+            else
+              echo 'Web network already exists'
+            fi
+          "
+
+          scp .env docker-compose.yml $VPS_USER@$VPS_HOST:${DEPLOY_DIR}/
+          
+          ssh $VPS_USER@$VPS_HOST "
+            cd ${DEPLOY_DIR} && 
+            docker-compose down --remove-orphans &&
+            if ! docker ps --format '{{.Names}}' | grep -E '(^traefik$|^/traefik$|_traefik_)' >/dev/null; then
+              echo 'No Traefik found, starting everything...'
+              docker-compose up -d
+            else
+              echo 'Traefik already running, starting only microservice...'
+              docker-compose up -d microservice-google-tts
+            fi
           "
