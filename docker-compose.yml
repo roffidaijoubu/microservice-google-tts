@@ -7,7 +7,7 @@ services:
       # Main API route
       - "traefik.http.routers.microservice-google-tts.rule=Host(`gtts.oristarium.com`)"
       - "traefik.http.routers.microservice-google-tts.entrypoints=https"
-      - "traefik.http.routers.microservice-google-tts.tls.certresolver=myresolver"
+      - "traefik.http.routers.microservice-google-tts.tls.certresolver=letsencrypt"
       - "traefik.http.routers.microservice-google-tts.middlewares=security-headers,compress"
       
       # HTTP to HTTPS redirect
