@@ -1,6 +1,3 @@
-I'll help you update the README.md for your Google TTS microservice to match the style and comprehensiveness of your live chat microservice. Here's the updated version:
-
-```markdown
 <h1 align="center">Google TTS Microservice</h1>
 <div align="center">
 <img src="https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg" alt="Awesome Badge"/>
@@ -237,5 +234,3 @@ The library provides key features that make this microservice possible:
 - Support for multiple languages
 - Handling of long text by auto-splitting
 - Base64 audio encoding
-- Configurable timeout and hosts
-- TypeScript support
